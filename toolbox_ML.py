@@ -105,7 +105,14 @@ def categoriza_variables(df:pd.DataFrame, umbral_categoria:int, umbral_continua:
     TIPO_SUGERIDO (str): Sugerencia sobre el tipo de variable a analizar: 'Binaria', 'Categórica', 'Numérica discreta', 'Numérica continua'.    
     '''
 
+    # Creamos un dataframe donde volcaremos las variables ('features') para ser analizadas
+
     df_var = pd.DataFrame(df.columns, columns=['Features'])
+
+    # Iteramos sobre cada variable, pero a diferencia de la primera función, aquí asignamos cada característica a una columna,
+    # de esta forma preservamos el formato en cada columna (por ejemplo, la columna 'Data_type' es string, mientras que el resto son numéricas)
+    # En la primera función al distribuir las características en filas, 'DATA_TYPE' condicionaba al resto a ser strings. 
+
     for variable in df.columns:
         df_var.loc[df_var.Features == variable, 'Data_type'] = df[variable].dtype
         df_var.loc[df_var.Features == variable, '%_Missings'] = round(df[variable].isnull().sum()/len(df[variable]), 2)
@@ -423,14 +430,25 @@ def plot_target_vs_features(df:pd.DataFrame, target:str, features_cat:list, feat
     clasificando por cada categoria de variable categórica (columnas)
     
     '''
+
+    # Generamos una figura con un grid de subplots tal que cada fila represente una variable numérica, y cada columna represente una variable categórica. 
+    # Además, el eje X de cada subplot será compartido (representará la variable target) 
+
     fig, axs = plt.subplots(len(features_num), len(features_cat), figsize=(15,15), sharex=True)
+
+    # Realizamos una doble iteración: primero recorremos las variables categóricas (columnas del grid), y posteriormente las numéricas (filas del grid),
+    # generando en cada una un scatterplot de seaborn asignado a cada subplot (celda) del grid. 
+    # El eje Y viene representado por la variable numérica y el eje X por el target, mientras que la categórica determinará el color de cada punto. 
+    # Por último ajustamos el gráfico para simplificarlo visualmente (se comentan los ajustes en cada línea).
+
     for i, categoria in enumerate(features_cat):
         for j, numerica in enumerate(features_num):
             sns.scatterplot(df, y=numerica, x=target, hue=categoria, ax=axs[j,i]);
-            axs[j,i].set_xlabel('')
-            label = numerica if i == 0 else ''
-            axs[j,i].set_ylabel(label)
-            axs[j,i].legend(frameon=False)
-        axs[0,i].set_title(categoria)
-    fig.suptitle(target, fontsize=16)
-    fig.tight_layout()
+            
+            axs[j,i].set_xlabel('')             # Eliminamos etiqueta del eje X, correspondiente al target
+            label = numerica if i == 0 else ''  # Configuramos para mostrar la etiqueta del eje Y solamente en el primer gráfico, ya que hace referencia a toda la fila
+            axs[j,i].set_ylabel(label)          # Mostramos la etiqueta del eje Y,que tomará valor nulo ('') para los subplots interiores
+            axs[j,i].legend(frameon=False)      # Configuramos la leyenda para que no muestre el título ni el borde, así ocupará menos y reducimos la osibilidad que se superponga
+        axs[0,i].set_title(categoria)           # Agregamos el nombre de la categoría correspondiente a cada columna, para ello, la mostramos como título en el primer subplot
+    fig.suptitle(target, fontsize=16)           # Agregamos como título general de la figura el nombre del target, representado en todos los ejes X
+    fig.tight_layout()                          # Por último ajustamos todos los elementos para que no se solapen y la figura quede más compacta
