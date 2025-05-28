@@ -230,7 +230,7 @@ def plot_features_num_regression(df, target_col='', columns=[], umbral_corr=0, p
 
 ## VARIABLES CATEGÓRICAS ##
 
-def get_features_cat_regression(dataframe:pd.DataFrame, target_col:float, pvalue = 0.05, umbral_categoria = 6, umbral_continua = 25.0): 
+def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05, umbral_categoria = 6, umbral_continua = 25.0): 
     
     """
     DESCRIPCIÓN:
@@ -266,31 +266,31 @@ def get_features_cat_regression(dataframe:pd.DataFrame, target_col:float, pvalue
     (list): Variables categóricas que superen en confianza estadística el test de relación pertinente tras un análisis bivariante.
 
     """
-    if check_parametros(dataframe, target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
+    if check_parametros(df=df, target_col=target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
         return None
 
-    df_tipo = tipifica_variables(dataframe, umbral_categoria, umbral_continua)
+    df_tipo = tipifica_variables(df= df, umbral_categoria=umbral_categoria, umbral_continua=umbral_continua)
 
     # me quedo con las categóricas y las vuelco en una lista el nombre de la variable, que está en el índice del dataset
     
     es_catego = df_tipo.tipo_sugerido == "Categórica"
     es_binaria = df_tipo.tipo_sugerido == "Binaria"
 
-    lista_categoricas = df_tipo.loc[es_catego | es_binaria].index.to_list()
+    lista_categoricas = df_tipo.loc[es_catego | es_binaria].index.to_list() # --> EN MI FUNCIÓN DE TIPIFICA, LAS CATEGÓRICAS ERAN EL INDICE!! AHORA YA NO ES ASÍ
 
     features_categoricas = []
     for categoria in lista_categoricas:
         # si mi variable es binaria, aplicamos U de Mann-Whitney
 
-        if len(dataframe[categoria].unique()) == 2:      
+        if len(df[categoria].unique()) == 2:      
             
             # from scipy.stats import mannwhitneyu --> preguntar si esto debería ir aquí o añadir en el stringdoc que es necesario importarlo para usar la función
             
-            es_a = dataframe[categoria].unique()[0]   # obtengo las dos agrupaciones
-            es_b = dataframe[categoria].unique()[1]
+            es_a = df[categoria].unique()[0]   # obtengo las dos agrupaciones
+            es_b = df[categoria].unique()[1]
             
-            grupo_a = dataframe.loc[dataframe[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas
-            grupo_b = dataframe.loc[dataframe[categoria] == es_b][target_col]
+            grupo_a = df.loc[df[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas
+            grupo_b = df.loc[df[categoria] == es_b][target_col]
             
             u_stat, p_valor = mannwhitneyu(grupo_a, grupo_b)
 
@@ -302,10 +302,10 @@ def get_features_cat_regression(dataframe:pd.DataFrame, target_col:float, pvalue
 
         else:   
             # from scipy import stats 
-            grupos = dataframe[categoria].unique()  # obtengo todos valores de la variable
+            grupos = df[categoria].unique()  # obtengo todos valores de la variable
 
             # obtenemos los valores del target por cada valor de las diferentes categorias con un list comprehension 
-            argumento_stats = [dataframe[dataframe[categoria] == grupo][target_col] for grupo in grupos] 
+            argumento_stats = [df[df[categoria] == grupo][target_col] for grupo in grupos] 
                  
             f_val, p_valor = stats.f_oneway(*argumento_stats) # El método * separa todos los elementos de la lista y los pasa como argumento a la función                                                   
 
@@ -360,7 +360,7 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
 
     if len(columns) == 0:
         
-        df_tipo = tipifica_variables(dataframe=df, umbral_categoria= umbral_categoria, umbral_continua= umbral_continua)
+        df_tipo = tipifica_variables(df=df, umbral_categoria= umbral_categoria, umbral_continua= umbral_continua)
         es_catego = df_tipo.Tipo == "Categórica"
         es_binaria = df_tipo.Tipo == "Binaria"
 
