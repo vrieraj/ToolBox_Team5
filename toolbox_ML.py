@@ -25,8 +25,14 @@ def describe_df(df:pd.DataFrame):
     CARDIN(%) (float): Porcentaje de cardinalidad.
     '''
     
-    df_var = pd.DataFrame(index=pd.Index([], name='COL_N'))
-    for variable in df.columns:
+    # Creamos un dataframe con índice 'N_COL' vacío, que usaremos para ir almacenando el nombre de característica a analizar (tipo de dato, nulos, cardinalidad, etc.)
+
+    df_var = pd.DataFrame(index=pd.Index([], name='COL_N'))         
+    
+    # Iteramos sobre cada variable del dataframe dado, y usando el método loc, asignamos cada variable a una columna nueva
+    # y las características analizadas a cada fila, creando el nombre de cada fila en la primera iteración ('DATA_TYPE', 'MISSINGS', etc)
+
+    for variable in df.columns:                                     
         df_var.loc['DATA_TYPE', variable]    = df[variable].dtype
         df_var.loc['MISSINGS (%)', variable] = round(df[variable].isnull().sum()/len(df[variable]), 2)
         
@@ -36,6 +42,9 @@ def describe_df(df:pd.DataFrame):
         df_var.loc['UNIQUE_VALUES', variable] = cardinalidad
         df_var.loc['CARDIN (%)', variable]    = porc_card
     
+    # Aquí reseteamos el índice como columna y renombramos los valores del indice como '' para que no aparezca nada
+    # Así la tabla aparece con todas las filas continuas,tal y como se pretendía mostrar
+
     df_var = df_var.reset_index()
     df_var.index = pd.Index(np.full((1,len(df_var)),'')[0]) 
 
@@ -58,12 +67,23 @@ def tipifica_variables(df:pd.DataFrame, umbral_categoria:int, umbral_continua:fl
     TIPO_SUGERIDO (str): Sugerencia sobre el tipo de variable a analizar: 'Binaria', 'Categórica', 'Numérica discreta', 'Numérica continua'. 
     '''
 
+    # Llamamos a la función describe_df, la cuál nos calcula el porcentaje de cardinalidad,
+    # establecemos como índice los atributos de cada variable (columna 'N_COL') 
+    # y trasponemos, para que estos aparezcan como nombres de columnas
+
     df = describe_df(df).set_index('COL_N').T
+
+    # Usando el método loc, generamos una nueva columna en el dataframe ('TIPO_SUGERIDO')
+    # y clasificamos las variables en función de su cardinalidad y los umbrales dados
     
     df.loc[(df.UNIQUE_VALUES >= umbral_categoria) & (df['CARDIN (%)'] > umbral_continua), 'TIPO_SUGERIDO'] = 'Numérica continua'
     df.loc[(df.UNIQUE_VALUES >= umbral_categoria) & (df['CARDIN (%)'] < umbral_continua), 'TIPO_SUGERIDO'] = 'Numérica discreta'
     df.loc[df.UNIQUE_VALUES < umbral_categoria, 'TIPO_SUGERIDO'] = 'Categórica'
     df.loc[df.UNIQUE_VALUES == 2, 'TIPO_SUGERIDO'] = 'Binaria'
+
+    # Ahora mismo nuestro dataframe tiene los nombres de las variables como índice,
+    # por lo que generamos un nuevo dataframe con el índice y la columna 'TIPO_SUGERIDO'
+    # trasponemos y renombramos para mostrar las variables y tipos en dos columnas
 
     return pd.DataFrame([df.index, df.TIPO_SUGERIDO]).T.rename(columns = {0: "nombre_variable", 1: "tipo_sugerido"})
 
