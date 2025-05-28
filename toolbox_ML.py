@@ -295,12 +295,16 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
     (list): Variables categóricas que superen en confianza estadística el test de relación pertinente tras un análisis bivariante.
 
     """
+    # invocamos a check_parametros para comprobar que los argumentos son correctos
+
     if check_parametros(df=df, target_col=target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
         return None
 
+    # instanciamos el resultado de tipifica variables para conseguir posteriormente una lista de las categóricas
+
     df_tipo = tipifica_variables(df= df, umbral_categoria=umbral_categoria, umbral_continua=umbral_continua)
 
-    # me quedo con las categóricas y las vuelco en una lista el nombre de la variable, que está en el índice del dataset
+    # las obtengo con una máscara booleana y volcamos el nombre de los valores en una lista
     
     es_catego = df_tipo.tipo_sugerido == "Categórica"
     es_binaria = df_tipo.tipo_sugerido == "Binaria"
@@ -308,7 +312,11 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
     lista_categoricas = df_tipo.loc[es_catego | es_binaria]['nombre_variable'].to_list()
 
     features_categoricas = []
+
+    # recorremos la lista de categóricas para aplicar el test pertinente con el que obtendremos la confianza estadística mediante el pvalue
+
     for categoria in lista_categoricas:
+
         # si mi variable es binaria, aplicamos U de Mann-Whitney
 
         if len(df[categoria].unique()) == 2:      
@@ -318,13 +326,13 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
             es_a = df[categoria].unique()[0]   # obtengo las dos agrupaciones
             es_b = df[categoria].unique()[1]
             
-            grupo_a = df.loc[df[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas
+            grupo_a = df.loc[df[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas para todos los valores del target
             grupo_b = df.loc[df[categoria] == es_b][target_col]
             
             u_stat, p_valor = mannwhitneyu(grupo_a, grupo_b)
 
             if p_valor <= pvalue:
-                features_categoricas.append(categoria)
+                features_categoricas.append(categoria)  # si el p-value es menor o igual al del argumento, la variable categórica cae en la selección de features
             
 
         # si no es binaria, aplicamos ANOVA
@@ -339,7 +347,7 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
             f_val, p_valor = f_oneway(*argumento_stats) # El método * separa todos los elementos de la lista y los pasa como argumento a la función                                                   
 
             if p_valor <= pvalue:
-                features_categoricas.append(categoria)
+                features_categoricas.append(categoria) # si el p-value es menor o igual al del argumento, la variable categórica cae en la selección de features
 
     return features_categoricas  
 
@@ -384,8 +392,13 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
         return None
 
     """
+    # verificamos que los argumentos son correctos
+
     if check_parametros(df, target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
         return None
+    
+    # si el argumento columns es una lista vacía, obtenemos una lista con todas las variables categóricas del dataset llamando a la función tipifica_variables; 
+    # si columns contiene una lista, la función saltará el siguiente 'if'.
 
     if len(columns) == 0:
         
@@ -395,9 +408,12 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
 
         columns = df_tipo.loc[es_catego | es_binaria]["nombre_variable"].to_list()
     
-    columns.append(target_col)
-    columnas = get_features_cat_regression(df[columns], target_col=target_col, pvalue=pvalue, umbral_categoria = 6, umbral_continua = 25.0)
+    columns.append(target_col)  # añadimos la target a la lista de categóricas (obtenidas del dataset o la indicada por el usuario en el argumento 'columns') 
+        
+    # invocamos a la función get_features_cat_regression, que acotará la lista de categóricas en función de los resultados de los tests U de Mann-Whitney o ANOVA
+    columnas = get_features_cat_regression(df[columns], target_col=target_col, pvalue=pvalue, umbral_categoria = 6, umbral_continua = 25.0) 
     
+    # pintamos el scatterplot del target contra las categóricas que hayan superado el test con la confianza estadística pertinente
     fig, ax = plt.subplots(len(columnas), figsize=(10,10))
     for index, columna in enumerate(columnas):
         sns.histplot(df, x=target_col, hue=columna, ax=ax[index], log_scale=escala_log)
