@@ -276,7 +276,7 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
     es_catego = df_tipo.tipo_sugerido == "Categórica"
     es_binaria = df_tipo.tipo_sugerido == "Binaria"
 
-    lista_categoricas = df_tipo.loc[es_catego | es_binaria].index.to_list() # --> EN MI FUNCIÓN DE TIPIFICA, LAS CATEGÓRICAS ERAN EL INDICE!! AHORA YA NO ES ASÍ
+    lista_categoricas = df_tipo.loc[es_catego | es_binaria]['nombre_variable'].to_list()
 
     features_categoricas = []
     for categoria in lista_categoricas:
@@ -307,7 +307,7 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
             # obtenemos los valores del target por cada valor de las diferentes categorias con un list comprehension 
             argumento_stats = [df[df[categoria] == grupo][target_col] for grupo in grupos] 
                  
-            f_val, p_valor = stats.f_oneway(*argumento_stats) # El método * separa todos los elementos de la lista y los pasa como argumento a la función                                                   
+            f_val, p_valor = f_oneway(*argumento_stats) # El método * separa todos los elementos de la lista y los pasa como argumento a la función                                                   
 
             if p_valor <= pvalue:
                 features_categoricas.append(categoria)
