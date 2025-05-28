@@ -105,7 +105,14 @@ def categoriza_variables(df:pd.DataFrame, umbral_categoria:int, umbral_continua:
     TIPO_SUGERIDO (str): Sugerencia sobre el tipo de variable a analizar: 'Binaria', 'Categórica', 'Numérica discreta', 'Numérica continua'.    
     '''
 
+    # Creamos un dataframe donde volcaremos las variables ('features') para ser analizadas
+
     df_var = pd.DataFrame(df.columns, columns=['Features'])
+
+    # Iteramos sobre cada variable, pero a diferencia de la primera función, aquí asignamos cada característica a una columna,
+    # de esta forma preservamos el formato en cada columna (por ejemplo, la columna 'Data_type' es string, mientras que el resto son numéricas)
+    # En la primera función al distribuir las características en filas, 'DATA_TYPE' condicionaba al resto a ser strings. 
+
     for variable in df.columns:
         df_var.loc[df_var.Features == variable, 'Data_type'] = df[variable].dtype
         df_var.loc[df_var.Features == variable, '%_Missings'] = round(df[variable].isnull().sum()/len(df[variable]), 2)
@@ -288,12 +295,16 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
     (list): Variables categóricas que superen en confianza estadística el test de relación pertinente tras un análisis bivariante.
 
     """
+    # invocamos a check_parametros para comprobar que los argumentos son correctos
+
     if check_parametros(df=df, target_col=target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
         return None
 
+    # instanciamos el resultado de tipifica variables para conseguir posteriormente una lista de las categóricas
+
     df_tipo = tipifica_variables(df= df, umbral_categoria=umbral_categoria, umbral_continua=umbral_continua)
 
-    # me quedo con las categóricas y las vuelco en una lista el nombre de la variable, que está en el índice del dataset
+    # las obtengo con una máscara booleana y volcamos el nombre de los valores en una lista
     
     es_catego = df_tipo.tipo_sugerido == "Categórica"
     es_binaria = df_tipo.tipo_sugerido == "Binaria"
@@ -301,7 +312,11 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
     lista_categoricas = df_tipo.loc[es_catego | es_binaria]['nombre_variable'].to_list()
 
     features_categoricas = []
+
+    # recorremos la lista de categóricas para aplicar el test pertinente con el que obtendremos la confianza estadística mediante el pvalue
+
     for categoria in lista_categoricas:
+
         # si mi variable es binaria, aplicamos U de Mann-Whitney
 
         if len(df[categoria].unique()) == 2:      
@@ -311,13 +326,13 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
             es_a = df[categoria].unique()[0]   # obtengo las dos agrupaciones
             es_b = df[categoria].unique()[1]
             
-            grupo_a = df.loc[df[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas
+            grupo_a = df.loc[df[categoria] == es_a][target_col]   # y separo mi dataset en función de ellas para todos los valores del target
             grupo_b = df.loc[df[categoria] == es_b][target_col]
             
             u_stat, p_valor = mannwhitneyu(grupo_a, grupo_b)
 
             if p_valor <= pvalue:
-                features_categoricas.append(categoria)
+                features_categoricas.append(categoria)  # si el p-value es menor o igual al del argumento, la variable categórica cae en la selección de features
             
 
         # si no es binaria, aplicamos ANOVA
@@ -332,7 +347,7 @@ def get_features_cat_regression(df:pd.DataFrame, target_col:float, pvalue = 0.05
             f_val, p_valor = f_oneway(*argumento_stats) # El método * separa todos los elementos de la lista y los pasa como argumento a la función                                                   
 
             if p_valor <= pvalue:
-                features_categoricas.append(categoria)
+                features_categoricas.append(categoria) # si el p-value es menor o igual al del argumento, la variable categórica cae en la selección de features
 
     return features_categoricas  
 
@@ -377,8 +392,13 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
         return None
 
     """
+    # verificamos que los argumentos son correctos
+
     if check_parametros(df, target_col, umbral_categoria = umbral_categoria, umbral_continua = umbral_continua, pvalue=pvalue) != 'OK':
         return None
+    
+    # si el argumento columns es una lista vacía, obtenemos una lista con todas las variables categóricas del dataset llamando a la función tipifica_variables; 
+    # si columns contiene una lista, la función saltará el siguiente 'if'.
 
     if len(columns) == 0:
         
@@ -388,9 +408,12 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
 
         columns = df_tipo.loc[es_catego | es_binaria]["nombre_variable"].to_list()
     
-    columns.append(target_col)
-    columnas = get_features_cat_regression(df[columns], target_col=target_col, pvalue=pvalue, umbral_categoria = 6, umbral_continua = 25.0)
+    columns.append(target_col)  # añadimos la target a la lista de categóricas (obtenidas del dataset o la indicada por el usuario en el argumento 'columns') 
+        
+    # invocamos a la función get_features_cat_regression, que acotará la lista de categóricas en función de los resultados de los tests U de Mann-Whitney o ANOVA
+    columnas = get_features_cat_regression(df[columns], target_col=target_col, pvalue=pvalue, umbral_categoria = 6, umbral_continua = 25.0) 
     
+    # pintamos el scatterplot del target contra las categóricas que hayan superado el test con la confianza estadística pertinente
     fig, ax = plt.subplots(len(columnas), figsize=(10,10))
     for index, columna in enumerate(columnas):
         sns.histplot(df, x=target_col, hue=columna, ax=ax[index], log_scale=escala_log)
@@ -423,14 +446,25 @@ def plot_target_vs_features(df:pd.DataFrame, target:str, features_cat:list, feat
     clasificando por cada categoria de variable categórica (columnas)
     
     '''
+
+    # Generamos una figura con un grid de subplots tal que cada fila represente una variable numérica, y cada columna represente una variable categórica. 
+    # Además, el eje X de cada subplot será compartido (representará la variable target) 
+
     fig, axs = plt.subplots(len(features_num), len(features_cat), figsize=(15,15), sharex=True)
+
+    # Realizamos una doble iteración: primero recorremos las variables categóricas (columnas del grid), y posteriormente las numéricas (filas del grid),
+    # generando en cada una un scatterplot de seaborn asignado a cada subplot (celda) del grid. 
+    # El eje Y viene representado por la variable numérica y el eje X por el target, mientras que la categórica determinará el color de cada punto. 
+    # Por último ajustamos el gráfico para simplificarlo visualmente (se comentan los ajustes en cada línea).
+
     for i, categoria in enumerate(features_cat):
         for j, numerica in enumerate(features_num):
             sns.scatterplot(df, y=numerica, x=target, hue=categoria, ax=axs[j,i]);
-            axs[j,i].set_xlabel('')
-            label = numerica if i == 0 else ''
-            axs[j,i].set_ylabel(label)
-            axs[j,i].legend(frameon=False)
-        axs[0,i].set_title(categoria)
-    fig.suptitle(target, fontsize=16)
-    fig.tight_layout()
+            
+            axs[j,i].set_xlabel('')             # Eliminamos etiqueta del eje X, correspondiente al target
+            label = numerica if i == 0 else ''  # Configuramos para mostrar la etiqueta del eje Y solamente en el primer gráfico, ya que hace referencia a toda la fila
+            axs[j,i].set_ylabel(label)          # Mostramos la etiqueta del eje Y,que tomará valor nulo ('') para los subplots interiores
+            axs[j,i].legend(frameon=False)      # Configuramos la leyenda para que no muestre el título ni el borde, así ocupará menos y reducimos la osibilidad que se superponga
+        axs[0,i].set_title(categoria)           # Agregamos el nombre de la categoría correspondiente a cada columna, para ello, la mostramos como título en el primer subplot
+    fig.suptitle(target, fontsize=16)           # Agregamos como título general de la figura el nombre del target, representado en todos los ejes X
+    fig.tight_layout()                          # Por último ajustamos todos los elementos para que no se solapen y la figura quede más compacta
