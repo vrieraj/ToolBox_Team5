@@ -226,6 +226,8 @@ def plot_features_num_regression(df, target_col='', columns=[], umbral_corr=0, p
         columns = [variable for variable in df.columns if np.issubdtype(df[variable].dtype, np.number)]
 
     columnas = get_features_num_regression(df[columns], target_col=target_col, umbral_corr=umbral_corr, pvalue=pvalue)
+    if target_col not in columnas:
+        columnas.append(target_col)
     sns.pairplot(df, x_vars=columnas, y_vars=target_col)
 
 ## VARIABLES CATEGÓRICAS ##
@@ -361,10 +363,10 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
     if len(columns) == 0:
         
         df_tipo = tipifica_variables(df=df, umbral_categoria= umbral_categoria, umbral_continua= umbral_continua)
-        es_catego = df_tipo.Tipo == "Categórica"
-        es_binaria = df_tipo.Tipo == "Binaria"
+        es_catego = df_tipo.tipo_sugerido == "Categórica"
+        es_binaria = df_tipo.tipo_sugerido == "Binaria"
 
-        columns = df_tipo.loc[es_catego | es_binaria].index.to_list()
+        columns = df_tipo.loc[es_catego | es_binaria]["nombre_variable"].to_list()
     
     columns.append(target_col)
     columnas = get_features_cat_regression(df[columns], target_col=target_col, pvalue=pvalue, umbral_categoria = 6, umbral_continua = 25.0)
