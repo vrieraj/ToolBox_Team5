@@ -169,7 +169,7 @@ def check_parametros(df:pd.DataFrame, target_col:str, umbral_corr = 0.5, umbral_
 
 ## VARIABLES NUMÉRICAS ##
 
-def columnas_correlacionadas(df, target_col, umbral_corr, pvalue=None):
+def get_features_num_regression(df, target_col, umbral_corr, pvalue=None):
     """
     Devuelve una lista de columnas numéricas cuya correlación con target supera el umbral de correlación.
     Si especifica 'pvalue', tambien verifica que la correlación sea significativa.
@@ -225,7 +225,7 @@ def plot_features_num_regression(df, target_col='', columns=[], umbral_corr=0, p
     if len(columns) == 0:
         columns = [variable for variable in df.columns if np.issubdtype(df[variable].dtype, np.number)]
 
-    columnas = columnas_correlacionadas(df[columns], target_col=target_col, umbral_corr=umbral_corr, pvalue=pvalue)
+    columnas = get_features_num_regression(df[columns], target_col=target_col, umbral_corr=umbral_corr, pvalue=pvalue)
     sns.pairplot(df, x_vars=columnas, y_vars=target_col)
 
 ## VARIABLES CATEGÓRICAS ##
@@ -372,3 +372,43 @@ def plot_features_cat_regression(df, target_col = '', columns=[], pvalue=0.05, w
     fig, ax = plt.subplots(len(columnas), figsize=(10,10))
     for index, columna in enumerate(columnas):
         sns.histplot(df, x=target_col, hue=columna, ax=ax[index], log_scale=escala_log)
+
+## RELACIÓN MULTIVARIANTES ##
+def plot_target_vs_features(df:pd.DataFrame, target:str, features_cat:list, features_num:list):
+    '''
+    Genera graficos de dispersión entre la variable target y otras variables numéricas del DataFrame que presenten una correlación significativa.
+    Además distingue categorías de las variables pre-seleccionadas del dataset.
+   
+    REQUISITOS:
+    
+    Es necesario importar seaborn, ejecuta:
+    
+    import seaborn as sns
+
+    ARGUMENTOS:
+
+    dataframe (DataFrame): Dataset de train del conjunto de datos de un hipotético modelo de regresión lineal que queremos entrenar
+
+    target_col (float): Columna del dataset que constiuye el 'target' de nuestro hipotético modelo de regresión. Variable numérica continua o discreta con alta cardinalidad
+
+    features_cat (list): Lista de variables categóricas pre-selecionadas
+
+    features_num (list): Lista de variables numéricas pre-selecionadas
+
+    RETURN:
+
+    Muestra en pantala un grid con gráficos de dispersión cruzando las variables numericas (filas, eje Y) con el target (eje X) y 
+    clasificando por cada categoria de variable categórica (columnas)
+    
+    '''
+    fig, axs = plt.subplots(len(features_num), len(features_cat), figsize=(15,15), sharex=True)
+    for i, categoria in enumerate(features_cat):
+        for j, numerica in enumerate(features_num):
+            sns.scatterplot(df, y=numerica, x=target, hue=categoria, ax=axs[j,i]);
+            axs[j,i].set_xlabel('')
+            label = numerica if i == 0 else ''
+            axs[j,i].set_ylabel(label)
+            axs[j,i].legend(frameon=False)
+        axs[0,i].set_title(categoria)
+    fig.suptitle(target, fontsize=16)
+    fig.tight_layout()
