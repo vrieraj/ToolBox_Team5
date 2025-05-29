@@ -128,6 +128,8 @@ def categoriza_variables(df:pd.DataFrame, umbral_categoria:int, umbral_continua:
 
 ## FUNCIONES AUXILIARES ##
 
+# Define una función que recibe un DataFrame, el nombre de una columna objetivo (target_col), un umbral de correlación (umbral_corr, entre 0 y 1) y un pvalue opcional para verificar significancia estadística
+
 def check_parametros(df:pd.DataFrame, target_col:str, umbral_corr = 0.5, umbral_categoria = 0, umbral_continua = 0.5, pvalue = None):
     """
     DESCRIPCIÓN:
@@ -159,23 +161,29 @@ def check_parametros(df:pd.DataFrame, target_col:str, umbral_corr = 0.5, umbral_
     (string): 'OK' en caso de superar todas las comprobaciones descritas en los parámetros.
 
     """
-
+    ###Verifica que df sea un DataFrame. Si no lo es, muestra un error y devuelve None.
+    
     if not isinstance(df, pd.DataFrame):
         print("Error: el primer argumento debe ser un DataFrame.")
         return None
+    ### Comprueba si el nombre de columna target_col existe en el DataFrame. 
 
     if target_col not in df.columns:
         print(f"Error: la columna '{target_col}' no existe en el DataFrame.")
         return None
-
+     
+    ### Comprueba si target_col es una columna numérica. Si no, no es válida para correlaciones numéricas.
     if not np.issubdtype(df[target_col].dtype, np.number):
         print(f"Error: la columna '{target_col}' no es numérica.")
         return None
-
+        
+    ### Se asegura de que la columna target_col tenga muchos valores distintos (alta cardinalidad), lo cual indica que es una variable continua o discreta con      muchos valores. Evita usar columnas binarias o categóricas como objetivo.
     if df[target_col].nunique() < 10:
         print(f"Error: '{target_col}' no parece ser una variable continua (baja cardinalidad).")
         return None
-
+        
+    ###Verifica que umbral_corr esté entre 0 y 1. Si no, lanza un error.
+    
     if not (0 <= umbral_corr <= 1):
         print("Error: 'umbral_corr' debe estar entre 0 y 1.")
         return None
@@ -187,7 +195,8 @@ def check_parametros(df:pd.DataFrame, target_col:str, umbral_corr = 0.5, umbral_
     if type(umbral_continua) != float or umbral_continua < 0:
         print("Error: 'umbral_continua' debe ser un número decimal.")
         return None
-
+        
+    ## Solo se ejecuta si se pasa un pvalue.
     if pvalue is not None:
         if not isinstance(pvalue, (float, int)) or not (0 < pvalue < 1):
             print("Error: 'pvalue' debe ser un número entre 0 y 1 o None.")
@@ -195,6 +204,8 @@ def check_parametros(df:pd.DataFrame, target_col:str, umbral_corr = 0.5, umbral_
     return 'OK'
 
 ## VARIABLES NUMÉRICAS ##
+
+
 
 def get_features_num_regression(df, target_col, umbral_corr, pvalue=None):
     """
@@ -213,21 +224,32 @@ def get_features_num_regression(df, target_col, umbral_corr, pvalue=None):
     
     if check_parametros(df=df, target_col=target_col, umbral_corr = umbral_corr, pvalue = pvalue) != 'OK':
         return None
-
+    
+    ###Crea una lista vacía para guardar las columnas que cumplan las condiciones.
     columnas_validas = []
 
+    ###Selecciona todas las columnas numéricas excepto la columna objetivo.
     num_cols = df.select_dtypes(include=[np.number]).columns.drop(target_col)
+
+    ###Para cada columna numérica: Crea un sub-DataFrame con solo la columna objetivo y la actual, Elimina filas con NaN y Calcula la correlación de Pearson y      su p-value.
 
     for col in num_cols:
         series = df[[target_col, col]].dropna()
         corr, pval = pearsonr(series[target_col], series[col])
+        
+    ### Si la correlación es suficientemente fuerte (positiva o negativa) y si el pvalue (si se usa) indica significancia estadística. Entonces se guarda el        nombre de la columna.
+
 
         if abs(corr) >= umbral_corr:
             if pvalue is None or pval <= (1 - pvalue):
                 columnas_validas.append(col)
-
+                
+    ###Devuelve la lista de columnas fuertemente correlacionadas y significativas.
+    
     return columnas_validas
 
+    ### Define una función que Recibe un DataFrame, el nombre de la variable objetivo (target_col), un listado opcional de columnas numéricas (columns), umbral     de correlación mínima (umbral_corr) y umbral de significancia estadística (pvalue
+    
 def plot_features_num_regression(df, target_col='', columns=[], umbral_corr=0, pvalue=None):
     '''
     Genera graficos pairplot entre la variable target y otras variables numéricas
@@ -246,15 +268,23 @@ def plot_features_num_regression(df, target_col='', columns=[], umbral_corr=0, p
     Retorna:
     None. Muestra en pantalla uno o varios pairplots con las variables seleccionadas.
     '''
+    ### Llama a una función auxiliar check_parametros que se encarga de validar que el DataFrame es válido, target_col existe y es numérico continuo y que          umbral_corr y pvalue están en rangos aceptables
+    
     if check_parametros(df=df, target_col=target_col, umbral_corr = umbral_corr, pvalue = pvalue) != 'OK':
         return None
-
+        
+    ###Si no se pasan columnas explícitamente, se seleccionan todas las columnas numéricas del DataFrame para evaluarlas.
     if len(columns) == 0:
         columns = [variable for variable in df.columns if np.issubdtype(df[variable].dtype, np.number)]
+        
+    ###Se llama a otra función auxiliar (get_features_num_regression) que calcula las correlaciones entre target_col y las columnas numéricas seleccionadas y       filtra por valor absoluto de la correlación ≥ umbral_corr y p-value ≤ 1 - pvalue (si se usa)
 
+    ### Devuelve una lista de columnas relevantes.
     columnas = get_features_num_regression(df[columns], target_col=target_col, umbral_corr=umbral_corr, pvalue=pvalue)
+    ### Nos aseguramos de que la columna objetivo esté incluida para que se pueda graficar.
     if target_col not in columnas:
         columnas.append(target_col)
+    ### Graficamos con Seaborn pairplot para mostrar en el eje X: todas las columnas seleccionadas y en el eje Y solo la columna objetivo
     sns.pairplot(df, x_vars=columnas, y_vars=target_col)
 
 ## VARIABLES CATEGÓRICAS ##
